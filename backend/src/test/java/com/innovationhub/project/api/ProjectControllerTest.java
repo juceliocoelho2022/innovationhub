@@ -2,6 +2,7 @@ package com.innovationhub.project.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innovationhub.project.application.ProjectService;
+import com.innovationhub.project.domain.InnovationArea;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -34,6 +35,7 @@ class ProjectControllerTest {
         var request = new CreateProjectRequest(
                 "AI Vision",
                 "Visão computacional",
+                InnovationArea.ARTIFICIAL_INTELLIGENCE,
                 LocalDate.of(2026, 10, 1),
                 LocalDate.of(2027, 1, 31),
                 new BigDecimal("1200000"),
@@ -46,6 +48,7 @@ class ProjectControllerTest {
                 "AI Vision",
                 "Visão computacional",
                 "DRAFT",
+                "ARTIFICIAL_INTELLIGENCE",
                 LocalDate.of(2026, 10, 1),
                 LocalDate.of(2027, 1, 31),
                 new BigDecimal("1200000"),
@@ -58,6 +61,7 @@ class ProjectControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code").value("PDI-2026-ABC12345"))
-                .andExpect(jsonPath("$.status").value("DRAFT"));
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.innovationArea").value("ARTIFICIAL_INTELLIGENCE"));
     }
 }
