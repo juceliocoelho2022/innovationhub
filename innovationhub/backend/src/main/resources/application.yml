@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: innovationhub-api
+  datasource:
+    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:14333};databaseName=${DB_NAME:innovationhub};encrypt=true;trustServerCertificate=true
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:InnovationHub@2026!}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

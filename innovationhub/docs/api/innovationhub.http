@@ -1,0 +1,21 @@
+### Health
+GET http://localhost:8080/actuator/health
+
+### Dashboard
+GET http://localhost:8080/api/v1/dashboard/summary
+
+### List projects
+GET http://localhost:8080/api/v1/projects?page=0&size=10&sort=createdAt,desc
+
+### Create project
+POST http://localhost:8080/api/v1/projects
+Content-Type: application/json
+
+{
+  "name": "Smart Factory AI",
+  "description": "Inspeção industrial utilizando visão computacional.",
+  "startDate": "2026-10-01",
+  "endDate": "2027-03-31",
+  "budget": 850000.00,
+  "managerName": "Jucelio Coelho"
+}

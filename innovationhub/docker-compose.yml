@@ -1,0 +1,63 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: innovationhub-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-InnovationHub@2026!}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "14333:1433"
+    volumes:
+      - innovationhub_sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: innovationhub-sqlserver-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-InnovationHub@2026!}"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >
+        /opt/mssql-tools/bin/sqlcmd
+        -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD"
+        -Q "IF DB_ID('innovationhub') IS NULL CREATE DATABASE innovationhub;"
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: innovationhub-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_NAME: "${DB_NAME:-innovationhub}"
+      DB_USER: "${DB_USER:-sa}"
+      DB_PASSWORD: "${DB_PASSWORD:-InnovationHub@2026!}"
+    ports:
+      - "8080:8080"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: innovationhub-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  innovationhub_sqlserver_data:
