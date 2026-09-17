@@ -9,6 +9,7 @@ public record ProjectResponse(
         String name,
         String description,
         String status,
+        String innovationArea,
         LocalDate startDate,
         LocalDate endDate,
         BigDecimal budget,

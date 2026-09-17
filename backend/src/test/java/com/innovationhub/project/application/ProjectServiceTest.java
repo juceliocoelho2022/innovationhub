@@ -1,6 +1,7 @@
 package com.innovationhub.project.application;
 
 import com.innovationhub.project.api.CreateProjectRequest;
+import com.innovationhub.project.domain.InnovationArea;
 import com.innovationhub.project.domain.Project;
 import com.innovationhub.project.infrastructure.ProjectRepository;
 import com.innovationhub.shared.exception.BusinessRuleException;
@@ -24,11 +25,13 @@ class ProjectServiceTest {
     private ProjectRepository repository;
 
     @Test
-    void shouldCreateProjectAsDraft() {
+    void shouldCreateProjectAsDraftWithInnovationArea() {
         var service = new ProjectService(repository);
+
         var request = new CreateProjectRequest(
                 "Smart Factory AI",
                 "Inspeção industrial com visão computacional",
+                InnovationArea.ARTIFICIAL_INTELLIGENCE,
                 LocalDate.of(2026, 10, 1),
                 LocalDate.of(2027, 3, 31),
                 new BigDecimal("850000.00"),
@@ -46,15 +49,22 @@ class ProjectServiceTest {
         assertThat(response.name()).isEqualTo("Smart Factory AI");
         assertThat(response.status()).isEqualTo("DRAFT");
         assertThat(response.code()).startsWith("PDI-");
-        assertThat(captor.getValue().getBudget()).isEqualByComparingTo("850000.00");
+        assertThat(response.innovationArea())
+                .isEqualTo("ARTIFICIAL_INTELLIGENCE");
+        assertThat(captor.getValue().getInnovationArea())
+                .isEqualTo(InnovationArea.ARTIFICIAL_INTELLIGENCE);
+        assertThat(captor.getValue().getBudget())
+                .isEqualByComparingTo("850000.00");
     }
 
     @Test
     void shouldRejectEndDateBeforeStartDate() {
         var service = new ProjectService(repository);
+
         var request = new CreateProjectRequest(
                 "Projeto inválido",
                 "Datas inválidas",
+                InnovationArea.OTHER,
                 LocalDate.of(2026, 10, 10),
                 LocalDate.of(2026, 10, 1),
                 new BigDecimal("1000"),

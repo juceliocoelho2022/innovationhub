@@ -27,6 +27,10 @@ public class Project {
     @Column(nullable = false, length = 30)
     private ProjectStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "innovation_area", nullable = false, length = 40)
+    private InnovationArea innovationArea;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
@@ -56,6 +60,7 @@ public class Project {
             String code,
             String name,
             String description,
+            InnovationArea innovationArea,
             LocalDate startDate,
             LocalDate endDate,
             BigDecimal budget,
@@ -65,6 +70,7 @@ public class Project {
         this.name = name;
         this.description = description;
         this.status = ProjectStatus.DRAFT;
+        this.innovationArea = innovationArea;
         this.startDate = startDate;
         this.endDate = endDate;
         this.budget = budget;
@@ -88,6 +94,7 @@ public class Project {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public ProjectStatus getStatus() { return status; }
+    public InnovationArea getInnovationArea() { return innovationArea; }
     public LocalDate getStartDate() { return startDate; }
     public LocalDate getEndDate() { return endDate; }
     public BigDecimal getBudget() { return budget; }
