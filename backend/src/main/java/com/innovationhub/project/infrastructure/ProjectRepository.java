@@ -6,12 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 
 public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     long countByStatus(ProjectStatus status);
 
     long countByStatusNot(ProjectStatus status);
+
+    long countByStatusIn(Collection<ProjectStatus> statuses);
 
     @Query("select coalesce(sum(p.budget), 0) from Project p")
     BigDecimal sumBudget();

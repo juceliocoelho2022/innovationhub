@@ -5,6 +5,8 @@ import com.innovationhub.project.infrastructure.ProjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class DashboardService {
 
@@ -18,7 +20,11 @@ public class DashboardService {
     public DashboardSummary summary() {
         return new DashboardSummary(
                 repository.count(),
-                repository.countByStatusNot(ProjectStatus.CANCELLED),
+                repository.countByStatusIn(List.of(
+                        ProjectStatus.APPROVED,
+                        ProjectStatus.IN_PROGRESS,
+                        ProjectStatus.AT_RISK
+                )),
                 repository.countByStatus(ProjectStatus.IN_PROGRESS),
                 repository.countByStatus(ProjectStatus.AT_RISK),
                 repository.countByStatus(ProjectStatus.COMPLETED),
