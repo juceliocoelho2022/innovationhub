@@ -6,6 +6,25 @@ Sistema corporativo para gestão de projetos de **Pesquisa, Desenvolvimento e In
 
 ![Dashboard conceitual](docs/mockups/dashboard.png)
 
+
+## Technical Snapshot
+
+| Focus | Evidence in this project |
+|---|---|
+| Target roles | Java Backend Developer · Backend Engineer · Software Engineer |
+| Architecture | Modular Monolith · Layered Architecture · REST API |
+| Backend | Java 21 · Spring Boot · Spring Web · Spring Data JPA · Hibernate |
+| Data | Microsoft SQL Server · Flyway · JPA |
+| API quality | DTOs · Bean Validation · ProblemDetail · Pagination · Optimistic Locking |
+| Testing | JUnit 5 · Mockito · MockMvc · JaCoCo |
+| Delivery | Docker · Docker Compose · GitHub Actions · OpenAPI |
+
+**Engineering highlights:** escolha consciente de monólito modular para reduzir complexidade operacional, modelagem de domínio, tratamento padronizado de erros e controle de concorrência com `@Version`.
+
+**Keywords:** `Java Backend` `Spring Boot` `REST API` `Modular Monolith` `SQL Server` `JPA` `Hibernate` `Flyway` `JUnit 5` `Docker` `OpenAPI`
+
+---
+
 ## Objetivo
 
 O InnovationHub centraliza projetos de inovação, responsáveis, status, orçamento e indicadores de portfólio. A primeira versão entrega o núcleo de **Projetos + Dashboard** e deixa a base pronta para os módulos de atividades, equipes, orçamento, riscos, indicadores, auditoria e IA.
