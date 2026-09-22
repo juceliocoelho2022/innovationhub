@@ -77,7 +77,15 @@ The Prometheus registry provides a baseline for:
 - JVM/process telemetry;
 - datasource/pool telemetry when available.
 
-The project does not claim production SLOs yet. The next step would be to define workload-based targets after collecting representative measurements.
+The Docker Compose stack now includes Prometheus and Grafana. Grafana provisions the **InnovationHub Backend Overview** dashboard automatically with:
+
+- HTTP throughput;
+- HTTP 5xx error rate;
+- mean HTTP latency;
+- request rate by endpoint;
+- mean latency by endpoint.
+
+The project does not claim production SLOs yet. The dashboard is a diagnostic baseline; workload-based SLI/SLO targets should only be defined after representative measurements exist.
 
 ## 5. Trade-offs
 
@@ -107,3 +115,6 @@ Prometheus adds operational visibility with low application complexity, but metr
 - Flyway migrations under `src/main/resources/db/migration`
 - `mvn verify` in GitHub Actions
 - Actuator + Micrometer Prometheus endpoint
+- Prometheus scrape configuration
+- provisioned Grafana datasource/dashboard
+- Docker Compose validation + `promtool` validation in GitHub Actions
