@@ -8,7 +8,9 @@ on:
 
 jobs:
   backend:
+    name: Backend · Java 21 · SQL Server Integration
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: backend
@@ -19,8 +21,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Verify backend
-        run: mvn -B verify
+      - name: Verify backend, Flyway and SQL Server integration
+        run: mvn -B -ntp verify
 
   frontend:
     runs-on: ubuntu-latest
