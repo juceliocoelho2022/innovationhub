@@ -7,6 +7,9 @@ Sistema corporativo para gestão de projetos de **Pesquisa, Desenvolvimento e In
 ![Dashboard conceitual](docs/mockups/dashboard.png)
 
 
+
+> **Engineering decisions & trade-offs:** [docs/engineering-decisions.md](docs/engineering-decisions.md) — contexto, alternativas consideradas, custos das escolhas, estratégia de testes e diagnóstico operacional.
+
 ## Technical Snapshot
 
 | Focus | Evidence in this project |
