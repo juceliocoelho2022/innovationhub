@@ -21,7 +21,8 @@ Sistema corporativo para gestão de projetos de **Pesquisa, Desenvolvimento e In
 | Backend | Java 21 · Spring Boot · Spring Web · Spring Data JPA · Hibernate |
 | Data | Microsoft SQL Server · Flyway · JPA |
 | API quality | DTOs · Bean Validation · ProblemDetail · Pagination · Optimistic Locking |
-| Testing | JUnit 5 · Mockito · MockMvc · JaCoCo |
+| Testing | JUnit 5 · Mockito · MockMvc · Testcontainers · JaCoCo |
+| Observability | Actuator · Micrometer · Prometheus · Grafana |
 | Delivery | Docker · Docker Compose · GitHub Actions · OpenAPI |
 
 **Engineering highlights:** escolha consciente de monólito modular para reduzir complexidade operacional, modelagem de domínio, tratamento padronizado de erros e controle de concorrência com `@Version`.
@@ -76,6 +77,8 @@ O domínio inicial ainda não justifica o custo operacional de múltiplos servi�
 - Docker / Docker Compose
 - GitHub Actions
 - Nginx
+- Prometheus
+- Grafana
 
 ## Estrutura
 
@@ -116,6 +119,8 @@ Acessos:
 - Health: `http://localhost:8080/actuator/health`
 - Swagger: `http://localhost:8080/swagger-ui.html`
 - SQL Server: `localhost:14333` (database `innovationhub` is created by the init container)
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` (local portfolio credentials: `admin/admin`)
 
 ## Executar pelo IntelliJ
 
@@ -199,6 +204,20 @@ Endpoints de observabilidade:
 /actuator/prometheus
 ```
 
+Dashboard provisionado automaticamente no Grafana:
+
+```text
+InnovationHub / InnovationHub Backend Overview
+```
+
+Painéis iniciais:
+
+- throughput HTTP;
+- taxa de HTTP 5xx;
+- latência HTTP média;
+- request rate por endpoint;
+- latência média por endpoint.
+
 ---
 
 ## Testes
@@ -219,7 +238,7 @@ O `verify` também gera relatório JaCoCo.
 - **v0.4:** orçamento e despesas
 - **v0.5:** riscos e indicadores
 - **v0.6:** auditoria de alterações
-- **v0.7:** observabilidade com Prometheus/Grafana
+- **v0.7:** observabilidade distribuída com logs estruturados e tracing
 - **v0.8:** módulo Innovation AI
 
 ## Argumento para entrevista
