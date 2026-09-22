@@ -38,3 +38,19 @@ jobs:
         run: npm install
       - name: Build frontend
         run: npm run build
+
+  observability:
+    name: Docker Compose · Observability Config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+      - name: Validate Prometheus configuration
+        run: |
+          docker run --rm \
+            -v "$PWD/observability/prometheus:/etc/prometheus:ro" \
+            --entrypoint /bin/promtool \
+            prom/prometheus:v3.13.1 \
+            check config /etc/prometheus/prometheus.yml
