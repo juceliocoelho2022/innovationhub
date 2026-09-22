@@ -8,7 +8,9 @@ Sistema corporativo para gestão de projetos de **Pesquisa, Desenvolvimento e In
 
 
 
-> **Engineering decisions & trade-offs:** [docs/engineering-decisions.md](docs/engineering-decisions.md) — contexto, alternativas consideradas, custos das escolhas, estratégia de testes e diagnóstico operacional.
+> **Engineering decisions & trade-offs:** [docs/engineering-decisions.md](docs/engineering-decisions.md)
+>
+> **Quality hardening:** [docs/quality-hardening.md](docs/quality-hardening.md) — SQL Server real com Testcontainers, Flyway, optimistic locking e baseline de observabilidade. — contexto, alternativas consideradas, custos das escolhas, estratégia de testes e diagnóstico operacional.
 
 ## Technical Snapshot
 
@@ -176,6 +178,28 @@ GET /api/v1/dashboard/summary
 - Controle de concorrência otimista com `@Version`.
 - Migrações versionadas com Flyway.
 - Seed de dados apenas no perfil `dev`.
+
+## SQL Server Integration Testing
+
+A suíte de qualidade valida o backend contra **Microsoft SQL Server real via Testcontainers**, incluindo migrations Flyway e conflito de concorrência com `@Version`.
+
+```bash
+cd backend
+mvn clean verify
+```
+
+O Docker precisa estar disponível para os testes de integração.
+
+Endpoints de observabilidade:
+
+```text
+/actuator/health
+/actuator/info
+/actuator/metrics
+/actuator/prometheus
+```
+
+---
 
 ## Testes
 
