@@ -27,6 +27,14 @@ public class ProjectController {
                 .body(response);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateProjectRequest request
+    ) {
+        return ResponseEntity.ok(service.update(id, request));
+    }
+
     @GetMapping
     public Page<ProjectResponse> list(Pageable pageable) {
         return service.list(pageable);
