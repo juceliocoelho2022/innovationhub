@@ -2,17 +2,21 @@ package com.innovationhub.project.application;
 
 import com.innovationhub.project.api.CreateProjectRequest;
 import com.innovationhub.project.api.ProjectResponse;
+import com.innovationhub.project.api.UpdateProjectRequest;
 import com.innovationhub.project.domain.Project;
 import com.innovationhub.project.infrastructure.ProjectRepository;
 import com.innovationhub.shared.exception.BusinessRuleException;
 import com.innovationhub.shared.exception.ProjectNotFoundException;
+import com.innovationhub.shared.exception.ProjectVersionConflictException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.Year;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -26,7 +30,7 @@ public class ProjectService {
 
     @Transactional
     public ProjectResponse create(CreateProjectRequest request) {
-        validateDates(request);
+        validateDates(request.startDate(), request.endDate());
 
         var project = new Project(
                 generateCode(),
@@ -42,6 +46,31 @@ public class ProjectService {
         return toResponse(repository.save(project));
     }
 
+    @Transactional
+    public ProjectResponse update(Long id, UpdateProjectRequest request) {
+        var project = repository.findById(id)
+                .orElseThrow(() -> new ProjectNotFoundException(id));
+
+        if (!Objects.equals(project.getVersion(), request.version())) {
+            throw new ProjectVersionConflictException(id, request.version(), project.getVersion());
+        }
+
+        validateDates(request.startDate(), request.endDate());
+
+        project.updateDetails(
+                request.name().trim(),
+                request.description(),
+                request.innovationArea(),
+                request.startDate(),
+                request.endDate(),
+                request.budget(),
+                request.managerName().trim()
+        );
+
+        repository.flush();
+        return toResponse(project);
+    }
+
     @Transactional(readOnly = true)
     public Page<ProjectResponse> list(Pageable pageable) {
         return repository.findAll(pageable).map(this::toResponse);
@@ -54,8 +83,8 @@ public class ProjectService {
                 .orElseThrow(() -> new ProjectNotFoundException(id));
     }
 
-    private void validateDates(CreateProjectRequest request) {
-        if (request.endDate().isBefore(request.startDate())) {
+    private void validateDates(LocalDate startDate, LocalDate endDate) {
+        if (endDate.isBefore(startDate)) {
             throw new BusinessRuleException("A data final não pode ser anterior à data inicial.");
         }
     }

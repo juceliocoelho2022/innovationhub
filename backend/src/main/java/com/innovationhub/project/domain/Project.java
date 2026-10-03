@@ -77,6 +77,24 @@ public class Project {
         this.managerName = managerName;
     }
 
+    public void updateDetails(
+            String name,
+            String description,
+            InnovationArea innovationArea,
+            LocalDate startDate,
+            LocalDate endDate,
+            BigDecimal budget,
+            String managerName
+    ) {
+        this.name = name;
+        this.description = description;
+        this.innovationArea = innovationArea;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.budget = budget;
+        this.managerName = managerName;
+    }
+
     @PrePersist
     void prePersist() {
         var now = Instant.now();
