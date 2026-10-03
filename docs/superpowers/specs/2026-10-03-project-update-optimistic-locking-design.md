@@ -32,8 +32,6 @@ A API atual não possui endpoint de atualização. Portanto, o optimistic lockin
 
 Em um sistema de gestão de PD&I, dois gestores podem abrir o mesmo projeto ao mesmo tempo e editar informações diferentes.
 
-Exemplo:
-
 ```text
 Project version = 5
 
@@ -52,8 +50,6 @@ Gestor B altera prazo usando version 5
 Sem controle de concorrência, uma atualização antiga pode apagar uma alteração válida já confirmada.
 
 ## 4. Canonical business rule
-
-A regra central desta feature é:
 
 > **Uma atualização baseada em uma versão obsoleta de um projeto não pode sobrescrever silenciosamente uma versão mais recente.**
 
@@ -86,13 +82,9 @@ Benefícios:
 
 ### 5.2 Alternativas consideradas
 
-#### PATCH
+**PATCH:** permitiria atualização parcial, mas introduziria complexidade adicional de merge, campos opcionais e validação condicional sem benefício necessário para esta versão.
 
-Permitiria atualização parcial, mas introduziria complexidade adicional de merge, campos opcionais e validação condicional sem benefício necessário para esta versão.
-
-#### HTTP ETag / If-Match
-
-É semanticamente apropriado para controle de versão HTTP, mas adicionaria uma camada conceitual que não é necessária para demonstrar a regra de concorrência deste case.
+**HTTP ETag / If-Match:** é semanticamente apropriado para controle de versão HTTP, mas adicionaria uma camada conceitual desnecessária para demonstrar a regra de concorrência deste case.
 
 A versão explícita no body foi escolhida por clareza de domínio e de portfólio.
 
@@ -142,9 +134,9 @@ Em atualização válida:
 200 OK
 ```
 
-A resposta continua utilizando `ProjectResponse`, incluindo a nova `version` persistida após a atualização.
+A resposta continua utilizando `ProjectResponse` e deve conter a versão persistida após o `flush` da atualização.
 
-O `code` corporativo, `id`, `createdAt` implícito de persistência e o estado interno de versionamento não são redefinidos pelo cliente.
+O `code` corporativo, `id`, timestamps de persistência e `status` não são redefinidos pelo cliente neste endpoint.
 
 ### 6.4 Status codes
 
@@ -186,16 +178,18 @@ validate business rules
        ↓
 Project.updateDetails(...)
        ↓
-JPA flush / transaction commit
+repository.flush()
        ↓
 SQL Server UPDATE guarded by @Version
-  ├── success -> version increments -> 200
-  └── concurrent winner changed row -> optimistic lock exception -> 409
+  ├── success -> managed entity receives next version
+  │              ↓
+  │         build ProjectResponse -> 200
+  └── concurrent winner changed row
+         ↓
+     optimistic lock exception -> 409
 ```
 
 ## 8. Two-layer concurrency protection
-
-A feature deve preservar duas camadas de defesa.
 
 ### 8.1 Application-level stale-version check
 
@@ -209,20 +203,17 @@ Isso cobre o caso em que o cliente já envia uma versão conhecida como obsoleta
 
 Mesmo que dois requests carreguem a mesma versão antes de qualquer deles commitar, o `@Version` continua sendo a arbitragem final.
 
-Exemplo:
-
 ```text
 Transaction A loads version 5
 Transaction B loads version 5
 
-A commits first -> row becomes version 6
-B tries to commit version 5
--> SQL/JPA update count does not satisfy optimistic version check
+A flush/commit first -> row becomes version 6
+B flush tries version 5
 -> optimistic locking exception
 -> HTTP 409
 ```
 
-A comparação manual não substitui `@Version`; ela melhora a resposta para conflitos já detectáveis. O SQL Server/JPA continua protegendo a janela de corrida real entre leitura e commit.
+A comparação manual não substitui `@Version`; ela melhora a resposta para conflitos já detectáveis. O SQL Server/JPA continua protegendo a janela de corrida real entre leitura e persistência.
 
 ## 9. Component responsibilities
 
@@ -263,8 +254,15 @@ Responsabilidades:
 - comparar versão esperada com versão atual;
 - validar invariantes da atualização;
 - delegar alteração de estado para a entidade;
-- converter para response;
-- permanecer dentro da fronteira transacional.
+- chamar `repository.flush()` antes de montar o response;
+- converter para `ProjectResponse` somente depois do flush bem-sucedido.
+
+O `flush` explícito é parte do desenho por dois motivos:
+
+1. força a checagem de `@Version` dentro do caso de uso, tornando uma corrida real observável antes da criação da resposta;
+2. garante que `ProjectResponse.version` represente a versão efetivamente persistida após a atualização, e não a versão anterior ainda presente antes do flush.
+
+Como `ProjectRepository` estende `JpaRepository`, `flush()` já faz parte do contrato existente; não é necessário criar infraestrutura adicional.
 
 ### 9.4 `Project`
 
@@ -290,7 +288,7 @@ Não faz parte desta feature permitir alteração de:
 - código corporativo;
 - `version` diretamente;
 - timestamps de persistência;
-- status por meio deste endpoint.
+- `status` por meio deste endpoint.
 
 ### 9.5 `GlobalExceptionHandler`
 
@@ -298,7 +296,7 @@ O handler deve traduzir conflitos de concorrência para um contrato HTTP estáve
 
 ## 10. Conflict model
 
-Criar uma exceção de aplicação específica, por exemplo:
+Criar uma exceção de aplicação específica:
 
 ```text
 ProjectVersionConflictException
@@ -306,13 +304,11 @@ ProjectVersionConflictException
 
 Ela representa uma versão esperada diferente da versão atualmente persistida.
 
-Além disso, exceções de optimistic locking lançadas durante flush/commit devem ser traduzidas para o mesmo contrato `409 Conflict`.
+Além disso, exceções de optimistic locking lançadas durante `flush()` devem ser traduzidas para o mesmo contrato `409 Conflict`.
 
-O mapeamento deverá considerar a exceção Spring/JPA apropriada presente na stack atual, preferencialmente `ObjectOptimisticLockingFailureException` ou a abstração `OptimisticLockingFailureException`, conforme o ponto real de propagação validado pelos testes.
+O plano de implementação deve confirmar a exceção Spring/JPA efetivamente propagada pela stack atual. O handler deverá mapear a forma observada — normalmente `ObjectOptimisticLockingFailureException` ou sua abstração `OptimisticLockingFailureException` — sem acoplar o contrato HTTP a detalhes do Hibernate.
 
 ### 10.1 ProblemDetail de conflito
-
-Contrato esperado:
 
 ```json
 {
@@ -341,7 +337,7 @@ A atualização deve preservar as mesmas invariantes relevantes já aplicadas na
 endDate >= startDate
 ```
 
-Violação deve retornar `422 Unprocessable Entity` por regra de negócio.
+Violação retorna `422 Unprocessable Entity` por regra de negócio.
 
 ### 11.2 Orçamento
 
@@ -349,7 +345,7 @@ Violação deve retornar `422 Unprocessable Entity` por regra de negócio.
 budget >= 0
 ```
 
-O DTO usa Bean Validation para rejeitar valor negativo.
+O DTO usa Bean Validation para rejeitar valor negativo como payload inválido (`400 Bad Request`).
 
 ### 11.3 Text fields
 
@@ -367,7 +363,8 @@ Cobrir pelo menos:
 - projeto inexistente;
 - data final anterior à inicial;
 - versão do request diferente da versão persistida;
-- manutenção dos campos não editáveis.
+- manutenção dos campos não editáveis;
+- `flush()` antes da montagem da resposta.
 
 ### 12.2 HTTP/MockMvc tests
 
@@ -379,7 +376,7 @@ Cobrir o novo endpoint com pelo menos:
 - `422 Unprocessable Entity` para regra de datas;
 - `409 Conflict` para versão obsoleta;
 - `ProblemDetail` estável no conflito;
-- response contendo a nova versão.
+- response contendo a versão pós-flush.
 
 Cenário de demonstração esperado:
 
@@ -395,7 +392,7 @@ O teste existente `ProjectOptimisticLockingIntegrationTest` deve ser preservado.
 
 A suíte deve continuar comprovando que dois persistence contexts independentes não conseguem confirmar silenciosamente atualizações baseadas na mesma versão.
 
-A feature pode adicionar ou adaptar um teste de integração de API/serviço se necessário para comprovar que a exceção do banco é traduzida corretamente no caminho real da aplicação.
+A feature deve adicionar ou adaptar evidência suficiente para comprovar que a exceção de optimistic locking gerada pelo banco/JPA chega ao contrato HTTP como `409` no caminho real da aplicação.
 
 Mocks não substituem esta evidência, porque a semântica crítica depende do banco-alvo e do comportamento real do JPA provider.
 
@@ -406,8 +403,9 @@ Mocks não substituem esta evidência, porque a semântica crítica depende do b
 **Given** um projeto com `version = N`  
 **When** um `PUT` válido é enviado com `version = N`  
 **Then** os campos editáveis são atualizados  
+**And** o `flush` conclui com sucesso  
 **And** a operação retorna `200 OK`  
-**And** a resposta contém uma versão maior que `N`.
+**And** a resposta contém a nova versão persistida.
 
 ### AC-02 — Stale request version
 
@@ -421,7 +419,7 @@ Mocks não substituem esta evidência, porque a semântica crítica depende do b
 **Given** duas transações carregam a mesma versão do projeto  
 **When** ambas tentam confirmar alterações  
 **Then** somente uma confirma a atualização correspondente à versão esperada  
-**And** a outra falha por optimistic locking  
+**And** a outra falha por optimistic locking durante flush/commit  
 **And** não ocorre lost update silencioso.
 
 ### AC-04 — Invalid period
@@ -434,7 +432,7 @@ Mocks não substituem esta evidência, porque a semântica crítica depende do b
 
 **Given** `budget < 0`  
 **When** o update é solicitado  
-**Then** Bean Validation rejeita o request.
+**Then** Bean Validation retorna `400 Bad Request`.
 
 ### AC-06 — Missing project
 
@@ -453,7 +451,7 @@ Mocks não substituem esta evidência, porque a semântica crítica depende do b
 
 O PR #5 continuará sendo a branch de trabalho para esta evolução.
 
-Após a implementação, a documentação deve ser atualizada para refletir apenas capacidades comprovadas pelo código e testes.
+Após a implementação, a documentação deve refletir apenas capacidades comprovadas pelo código e testes.
 
 Arquivos-alvo previstos:
 
@@ -463,7 +461,7 @@ Arquivos-alvo previstos:
 - `docs/quality-hardening.md`;
 - novo `docs/PORTFOLIO_CASE_STUDY.md`.
 
-A narrativa central deve ser:
+Narrativa central:
 
 ```text
 problema de negócio
@@ -554,11 +552,12 @@ Depois da implementação, um revisor deverá conseguir responder, com evidênci
 
 1. qual problema de negócio o optimistic locking resolve;
 2. como a versão chega ao cliente e volta no update;
-3. por que a aplicação faz uma checagem de versão antes do commit;
+3. por que a aplicação faz uma checagem de versão antes do flush;
 4. por que `@Version` ainda é necessário mesmo com essa checagem;
-5. como o SQL Server impede o lost update em uma corrida real;
-6. por que o conflito é `409` e não `422`;
-7. como Testcontainers comprova a semântica no banco-alvo;
-8. por que o sistema continua como monólito modular em vez de adotar microsserviços.
+5. por que o `flush` explícito é necessário para obter a versão persistida e materializar o conflito dentro do caso de uso;
+6. como o SQL Server impede o lost update em uma corrida real;
+7. por que o conflito é `409` e não `422`;
+8. como Testcontainers comprova a semântica no banco-alvo;
+9. por que o sistema continua como monólito modular em vez de adotar microsserviços.
 
 A feature estará correta quando a narrativa de portfólio puder ser sustentada por contrato HTTP, código, testes e comportamento real do SQL Server — sem depender de afirmações não verificadas.
