@@ -1,5 +1,6 @@
 package com.innovationhub.shared.exception;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,6 +27,17 @@ public class GlobalExceptionHandler {
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
         problem.setTitle("Regra de negócio violada");
         problem.setType(URI.create("https://innovationhub.local/problems/business-rule"));
+        return problem;
+    }
+
+    @ExceptionHandler({ProjectVersionConflictException.class, OptimisticLockingFailureException.class})
+    ProblemDetail handleVersionConflict(RuntimeException ex) {
+        var problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "O projeto foi alterado por outro usuário. Recarregue os dados antes de tentar novamente."
+        );
+        problem.setTitle("Conflito de versão");
+        problem.setType(URI.create("https://innovationhub.local/problems/version-conflict"));
         return problem;
     }
 
