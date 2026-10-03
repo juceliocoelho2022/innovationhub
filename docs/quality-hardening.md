@@ -1,27 +1,20 @@
 # Quality Hardening — SQL Server, Concurrency and Observability
 
-This document records the quality-hardening work for InnovationHub.
-
 ## Goal
 
-The objective is not to add architectural complexity. It is to increase confidence that the existing modular monolith behaves correctly against its **target database**, under **concurrent updates**, and exposes enough runtime telemetry for diagnosis.
+Increase confidence that the InnovationHub modular monolith behaves correctly against its target database, protects concurrent project updates and exposes a practical diagnostic baseline without adding unnecessary distributed complexity.
 
 ## 1. Real SQL Server integration tests
 
-Integration tests use Testcontainers with Microsoft SQL Server.
+Integration tests use Testcontainers with Microsoft SQL Server because H2 does not reproduce SQL Server DDL, identity, timestamp and locking/version behavior exactly.
 
-Why this matters:
-
-- H2 and other in-memory databases do not reproduce SQL Server behavior exactly;
-- Flyway migrations contain SQL Server-specific DDL;
-- timestamp, identity, constraint and locking behavior should be validated against the target engine.
-
-The integration test verifies:
-
-- the running database identifies itself as Microsoft SQL Server;
-- Flyway applies the existing migrations;
-- JPA can persist and reload a Project;
-- the entity version starts consistently.
+The suite verifies:
+- SQL Server is the actual test database;
+- Flyway applies the versioned migrations;
+- JPA persists and reloads `Project`;
+- optimistic versioning works against the target engine;
+- the HTTP update path persists changes and increments the version;
+- a stale HTTP update returns conflict without overwriting the latest committed state.
 
 Run:
 
@@ -30,91 +23,108 @@ cd backend
 mvn clean verify
 ```
 
-Docker must be available because Testcontainers starts the database container.
+Docker must be available for Testcontainers.
 
-## 2. Optimistic locking
+## 2. Optimistic locking at persistence level
 
-`Project` already uses JPA `@Version`.
+`Project` uses JPA `@Version`.
 
-The integration scenario loads the same row in two independent persistence contexts:
+`ProjectOptimisticLockingIntegrationTest` opens two independent persistence contexts:
+1. A reads version N;
+2. B reads version N;
+3. A commits its update;
+4. B tries to commit the stale version;
+5. SQL/JPA rejects B;
+6. A remains authoritative.
 
-1. transaction A reads version N;
-2. transaction B reads version N;
-3. transaction A updates and commits;
-4. transaction B attempts to commit stale version N;
-5. SQL/JPA rejects the stale update;
-6. the first committed state remains authoritative.
+This proves that the database/JPA boundary protects against a real lost-update race.
 
-This demonstrates protection against lost updates without pessimistically locking every read.
+## 3. Optimistic locking through the HTTP use case
 
-## 3. Flyway as the schema authority
+`ProjectUpdateApiIntegrationTest` exercises the real application path with MockMvc + Spring + JPA + SQL Server.
 
-The test environment keeps:
+### Successful update
+
+```text
+Project version N
+-> PUT with version N
+-> service mutates allowed fields
+-> repository.flush()
+-> SQL Server update guarded by @Version
+-> 200 OK
+-> response and database contain version N+1
+```
+
+The test also confirms that `code` and `status` are preserved.
+
+### Stale request
+
+```text
+PUT version N -> success -> version N+1
+PUT again with stale version N
+-> 409 Conflict
+-> first committed state remains unchanged
+```
+
+This complements the persistence-level race test: application-level version checking rejects conflicts already visible when the request begins, while `@Version` still protects the narrower race window between load and commit.
+
+## 4. Stable conflict contract
+
+`ProjectControllerTest` covers both `ProjectVersionConflictException` and Spring `OptimisticLockingFailureException`. Both become the same client-facing `ProblemDetail`:
+
+```text
+409 Conflict
+Conflito de versão
+O projeto foi alterado por outro usuário. Recarregue os dados antes de tentar novamente.
+```
+
+Persistence exception details are not returned to clients.
+
+## 5. Flyway as schema authority
+
+The integration environment keeps:
 
 ```text
 spring.jpa.hibernate.ddl-auto=validate
 spring.flyway.enabled=true
 ```
 
-Hibernate therefore validates the schema instead of generating it. Flyway remains responsible for schema evolution.
+Hibernate validates; Flyway evolves the schema. A mapping/schema drift should fail instead of being silently corrected at runtime.
 
-This is intentional: application startup should fail when entity mappings and the versioned database schema drift apart.
-
-## 4. Observability baseline
+## 6. Observability baseline
 
 InnovationHub exposes:
-
 - `/actuator/health`
 - `/actuator/info`
 - `/actuator/metrics`
 - `/actuator/prometheus`
 
-The Prometheus registry provides a baseline for:
+Prometheus/Grafana provide HTTP volume/status/latency and JVM/process diagnostics. This is an operational baseline, not a production SLO claim.
 
-- HTTP request volume;
-- HTTP status distribution;
-- latency metrics;
-- JVM/process telemetry;
-- datasource/pool telemetry when available.
+## 7. Trade-offs
 
-The Docker Compose stack now includes Prometheus and Grafana. Grafana provisions the **InnovationHub Backend Overview** dashboard automatically with:
+### Testcontainers
+Real SQL Server tests are heavier than unit tests, so they are reserved for behavior that depends on the actual database. Fast service/controller tests remain the first feedback layer.
 
-- HTTP throughput;
-- HTTP 5xx error rate;
-- mean HTTP latency;
-- request rate by endpoint;
-- mean latency by endpoint.
+### Optimistic locking
+Conflicts can surface at flush/commit time. This is acceptable while writes to the same project are not known to be highly contended. A different locking strategy should require production evidence.
 
-The project does not claim production SLOs yet. The dashboard is a diagnostic baseline; workload-based SLI/SLO targets should only be defined after representative measurements exist.
-
-## 5. Trade-offs
-
-### Testcontainers cost
-
-Real SQL Server integration tests are slower and heavier than unit tests.
-
-Decision:
-
-- keep domain/service/controller unit tests fast;
-- use a small number of database integration tests for behaviors that depend on the actual engine.
-
-### Optimistic locking cost
-
-Optimistic locking allows conflicts to reach commit time.
-
-It is a good fit when concurrent writes to the same project are possible but not dominant. If contention becomes consistently high, the concurrency strategy should be revisited based on production evidence.
-
-### Metrics exposure
-
-Prometheus adds operational visibility with low application complexity, but metrics alone are not complete observability. Structured logs and distributed traces would be separate future decisions if the application becomes distributed.
+### Metrics
+Metrics improve diagnosis but are not complete distributed observability. Structured tracing is not required by the current monolithic architecture.
 
 ## Evidence
 
+- `ProjectServiceTest`
+- `ProjectControllerTest`
 - `SqlServerPersistenceIntegrationTest`
 - `ProjectOptimisticLockingIntegrationTest`
-- Flyway migrations under `src/main/resources/db/migration`
+- `ProjectUpdateApiIntegrationTest`
+- Flyway migrations under `backend/src/main/resources/db/migration`
 - `mvn verify` in GitHub Actions
-- Actuator + Micrometer Prometheus endpoint
-- Prometheus scrape configuration
-- provisioned Grafana datasource/dashboard
-- Docker Compose validation + `promtool` validation in GitHub Actions
+- Actuator + Micrometer Prometheus
+- provisioned Prometheus/Grafana configuration
+- Docker Compose + Prometheus configuration validation in CI
+
+## Evidence limits
+
+These tests prove behavior in the repository's controlled integration environment. They do not prove production concurrency rates, throughput, latency, availability or user traffic characteristics.
