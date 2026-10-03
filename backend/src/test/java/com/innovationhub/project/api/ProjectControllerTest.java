@@ -134,6 +134,25 @@ class ProjectControllerTest {
     }
 
     @Test
+    void shouldRejectUpdateWithNegativeBudget() throws Exception {
+        var request = new UpdateProjectRequest(
+                5L,
+                "AI Vision Updated",
+                "Nova descrição",
+                InnovationArea.ARTIFICIAL_INTELLIGENCE,
+                LocalDate.of(2026, 10, 2),
+                LocalDate.of(2027, 2, 28),
+                new BigDecimal("-0.01"),
+                "Mariana Costa"
+        );
+
+        mockMvc.perform(put("/api/v1/projects/1")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldReturnNotFoundWhenUpdatingMissingProject() throws Exception {
         var request = validUpdateRequest(5L);
         when(service.update(eq(1L), any(UpdateProjectRequest.class)))
