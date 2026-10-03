@@ -1,0 +1,22 @@
+package com.innovationhub.project.api;
+
+import com.innovationhub.project.domain.InnovationArea;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+public record UpdateProjectRequest(
+        @NotNull @PositiveOrZero Long version,
+        @NotBlank @Size(max = 150) String name,
+        @Size(max = 1000) String description,
+        @NotNull InnovationArea innovationArea,
+        @NotNull LocalDate startDate,
+        @NotNull LocalDate endDate,
+        @NotNull @PositiveOrZero BigDecimal budget,
+        @NotBlank @Size(max = 120) String managerName
+) {
+}
